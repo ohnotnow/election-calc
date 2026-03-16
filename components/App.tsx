@@ -23,7 +23,8 @@ export default function App() {
         <div>
           <h1>Scottish Parliament Election Calculator</h1>
           <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-            Based on notional 2021 results on 2026 boundaries
+            Starting point: 2021 election results on the new 2026 constituency boundaries.
+            Use the sliders below or enter polling figures to model "what if?" scenarios.
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -711,6 +712,13 @@ const BASE_REG_PCT: PartyVotes = { SNP: 40.3, CON: 23.5, LAB: 17.9, GRN: 8.1, LD
 
 const POLLING_PARTIES: PartyId[] = ["SNP", "CON", "LAB", "GRN", "LD", "REFORM", "ALBA"];
 
+// The 2021 baseline as a single averaged figure per party (what the pre-filled values represent)
+const BASELINE_PCT: PartyVotes = {};
+for (const p of POLLING_PARTIES) {
+  const avg = ((BASE_CONST_PCT[p] ?? 0) + (BASE_REG_PCT[p] ?? 0)) / 2;
+  BASELINE_PCT[p] = Math.round(avg * 10) / 10;
+}
+
 function pollingToSwing(polls: PartyVotes): SwingConfig {
   const swing = createEmptySwing();
   for (const party of DISPLAY_PARTIES) {
@@ -724,23 +732,16 @@ function pollingToSwing(polls: PartyVotes): SwingConfig {
   return swing;
 }
 
+const MAX_TOTAL = 105;
+const MIN_TOTAL = 90;
+
 function PollingPresets({ onApply }: { onApply: (swing: SwingConfig) => void }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"presets" | "custom">("presets");
-  const [custom, setCustom] = useState<PartyVotes>(() => {
-    // Pre-fill with rough 2021 baseline so the user sees real numbers
-    const init: PartyVotes = {};
-    for (const p of POLLING_PARTIES) {
-      // Average of const and regional baseline, rounded to 1dp
-      const avg = ((BASE_CONST_PCT[p] ?? 0) + (BASE_REG_PCT[p] ?? 0)) / 2;
-      init[p] = Math.round(avg * 10) / 10;
-    }
-    return init;
-  });
+  const [custom, setCustom] = useState<PartyVotes>(() => ({ ...BASELINE_PCT }));
 
   const applyPreset = (name: string) => {
     const preset = POLLING_PRESETS[name]!;
-    // Average the constituency and regional figures for the preset
     const merged: PartyVotes = {};
     for (const p of POLLING_PARTIES) {
       const avg = ((preset.constituency[p] ?? 0) + (preset.regional[p] ?? 0)) / 2;
@@ -755,13 +756,19 @@ function PollingPresets({ onApply }: { onApply: (swing: SwingConfig) => void }) 
     setOpen(false);
   };
 
+  const resetToBaseline = () => setCustom({ ...BASELINE_PCT });
+
   const total = POLLING_PARTIES.reduce((s, p) => s + (custom[p] ?? 0), 0);
-  const totalOk = Math.abs(total - 100) <= 10;
+  const canApply = total >= MIN_TOTAL && total <= MAX_TOTAL;
 
   const setPartyValue = (party: PartyId, raw: string) => {
-    const val = raw === "" ? 0 : parseFloat(raw);
-    if (!isNaN(val)) {
-      setCustom({ ...custom, [party]: Math.round(val * 10) / 10 });
+    if (raw === "") {
+      setCustom({ ...custom, [party]: 0 });
+      return;
+    }
+    const val = parseFloat(raw);
+    if (!isNaN(val) && val >= 0 && val <= 100) {
+      setCustom({ ...custom, [party]: val });
     }
   };
 
@@ -775,7 +782,7 @@ function PollingPresets({ onApply }: { onApply: (swing: SwingConfig) => void }) 
           style={{
             position: "absolute", right: 0, top: "100%", marginTop: 4,
             background: "var(--bg-secondary)", border: "1px solid var(--border)",
-            borderRadius: 8, padding: 12, zIndex: 10, minWidth: 280,
+            borderRadius: 8, padding: 14, zIndex: 10, width: 340,
             boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
           }}
           onClick={e => e.stopPropagation()}
@@ -787,14 +794,14 @@ function PollingPresets({ onApply }: { onApply: (swing: SwingConfig) => void }) 
               style={{ flex: 1, fontSize: 12, background: mode === "presets" ? "var(--accent)" : undefined }}
               onClick={() => setMode("presets")}
             >
-              Presets
+              Saved polls
             </button>
             <button
               className="btn"
               style={{ flex: 1, fontSize: 12, background: mode === "custom" ? "var(--accent)" : undefined }}
               onClick={() => setMode("custom")}
             >
-              Enter poll
+              Enter a poll
             </button>
           </div>
 
@@ -816,41 +823,91 @@ function PollingPresets({ onApply }: { onApply: (swing: SwingConfig) => void }) 
 
           {mode === "custom" && (
             <>
-              <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 10 }}>
-                Type in the poll figures and hit Apply.
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 10, lineHeight: 1.5 }}>
+                Enter vote share from a poll (%). The "2021" column shows the last election result for reference.
               </div>
-              {POLLING_PARTIES.map(p => (
-                <div key={p} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <span style={{
-                    color: PARTIES[p].colour, fontWeight: 700, fontSize: 13,
-                    width: 42, flexShrink: 0,
-                  }}>
-                    {PARTIES[p].shortName}
-                  </span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={custom[p] ?? 0}
-                    onChange={e => setPartyValue(p, e.target.value)}
-                    onFocus={e => e.target.select()}
-                    style={{
-                      flex: 1, textAlign: "right", background: "var(--bg-tertiary)",
-                      border: "1px solid var(--border)", borderRadius: 4, color: "var(--text-primary)",
-                      padding: "6px 10px", fontSize: 14, fontVariantNumeric: "tabular-nums",
-                    }}
-                  />
-                  <span style={{ fontSize: 13, color: "var(--text-muted)", width: 16 }}>%</span>
-                </div>
-              ))}
+
+              {/* Header row */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, padding: "0 2px" }}>
+                <span style={{ width: 42, flexShrink: 0, fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase" }}>Party</span>
+                <span style={{ flex: 1, textAlign: "right", fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", paddingRight: 10 }}>Poll %</span>
+                <span style={{ width: 48, textAlign: "right", fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase" }}>2021</span>
+              </div>
+
+              {POLLING_PARTIES.map(p => {
+                const baseline = BASELINE_PCT[p] ?? 0;
+                const current = custom[p] ?? 0;
+                const diff = current - baseline;
+                return (
+                  <div key={p} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+                    <span style={{
+                      color: PARTIES[p].colour, fontWeight: 700, fontSize: 13,
+                      width: 42, flexShrink: 0,
+                    }}>
+                      {PARTIES[p].shortName}
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={current || ""}
+                      onChange={e => setPartyValue(p, e.target.value)}
+                      onFocus={e => e.target.select()}
+                      style={{
+                        flex: 1, textAlign: "right", background: "var(--bg-tertiary)",
+                        border: "1px solid var(--border)", borderRadius: 4, color: "var(--text-primary)",
+                        padding: "6px 10px", fontSize: 14, fontVariantNumeric: "tabular-nums",
+                      }}
+                    />
+                    <span style={{
+                      width: 48, textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums",
+                      color: Math.abs(diff) < 0.5 ? "var(--text-muted)" : diff > 0 ? "var(--grn)" : "var(--lab)",
+                    }}>
+                      {baseline.toFixed(1)}
+                    </span>
+                  </div>
+                );
+              })}
+
+              {/* Total + validation */}
               <div style={{
-                display: "flex", justifyContent: "space-between", alignItems: "center",
                 marginTop: 10, paddingTop: 8, borderTop: "1px solid var(--border)",
               }}>
-                <span style={{ fontSize: 12, color: totalOk ? "var(--text-muted)" : "var(--lab)" }}>
-                  Total: {total.toFixed(1)}%
-                </span>
-                <button className="btn btn-primary" onClick={applyCustom} style={{ fontSize: 13, padding: "6px 18px" }}>
-                  Apply
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <span style={{
+                    fontSize: 13, fontWeight: 600, fontVariantNumeric: "tabular-nums",
+                    color: canApply ? "var(--text-primary)" : "var(--lab)",
+                  }}>
+                    Total: {total.toFixed(1)}%
+                  </span>
+                  <button
+                    className="btn"
+                    onClick={resetToBaseline}
+                    style={{ fontSize: 11, padding: "3px 8px" }}
+                  >
+                    Reset to 2021
+                  </button>
+                </div>
+
+                {!canApply && total > 0 && (
+                  <div style={{ fontSize: 11, color: "var(--lab)", marginBottom: 6 }}>
+                    {total > MAX_TOTAL
+                      ? `Vote shares add up to ${total.toFixed(1)}% - they need to be close to 100%.`
+                      : `Vote shares only add up to ${total.toFixed(1)}% - they need to be close to 100%.`
+                    }
+                  </div>
+                )}
+
+                <button
+                  className="btn btn-primary"
+                  onClick={applyCustom}
+                  disabled={!canApply}
+                  style={{
+                    width: "100%", fontSize: 13, padding: "8px 18px",
+                    opacity: canApply ? 1 : 0.4,
+                    cursor: canApply ? "pointer" : "not-allowed",
+                  }}
+                >
+                  Apply to calculator
                 </button>
               </div>
             </>
