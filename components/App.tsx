@@ -251,32 +251,89 @@ function RegionDetail({
     );
   }
 
+  // Count seats in this region
+  const constSeats: PartyVotes = {};
+  const baseConstSeats: PartyVotes = {};
+  for (const cName of region.constituencies) {
+    const winner = regionResult.constituencyWinners[cName]!;
+    constSeats[winner] = (constSeats[winner] ?? 0) + 1;
+    const baseWinner = baseRegionResult.constituencyWinners[cName]!;
+    baseConstSeats[baseWinner] = (baseConstSeats[baseWinner] ?? 0) + 1;
+  }
+  const listSeats = regionResult.dhondt.listSeats;
+  const baseListSeats = baseRegionResult.dhondt.listSeats;
+
+  const regionParties = DISPLAY_PARTIES.filter(p => {
+    const c = constSeats[p] ?? 0;
+    const l = listSeats[p] ?? 0;
+    const bc = baseConstSeats[p] ?? 0;
+    const bl = baseListSeats[p] ?? 0;
+    return c + l + bc + bl > 0;
+  });
+
   return (
     <>
+      {/* Headline: seats won in this region */}
       <div className="card">
         <h2>{regionName}</h2>
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>Regional List Votes</div>
-          <VoteBar votes={region.regionalListVotes} />
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 12, marginTop: 4 }}>
-            {DISPLAY_PARTIES.map(p => {
-              const v = region.regionalListVotes[p] ?? 0;
-              if (v === 0) return null;
-              return (
-                <span key={p} style={{ color: PARTIES[p].colour }}>
-                  {PARTIES[p].shortName}: {v.toLocaleString()}
-                </span>
-              );
-            })}
-          </div>
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", margin: "12px 0" }}>
+          {regionParties.map(p => {
+            const c = constSeats[p] ?? 0;
+            const l = listSeats[p] ?? 0;
+            const total = c + l;
+            const baseTotal = (baseConstSeats[p] ?? 0) + (baseListSeats[p] ?? 0);
+            const change = total - baseTotal;
+            return (
+              <div key={p} style={{
+                background: `${PARTIES[p].colour}18`,
+                border: `2px solid ${PARTIES[p].colour}`,
+                borderRadius: 8,
+                padding: "8px 14px",
+                textAlign: "center",
+                minWidth: 80,
+              }}>
+                <div style={{ fontSize: 28, fontWeight: 700, color: PARTIES[p].colour }}>{total}</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: PARTIES[p].colour }}>{PARTIES[p].shortName}</div>
+                <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                  {c} const + {l} list
+                </div>
+                {change !== 0 && (
+                  <div style={{ fontSize: 12, fontWeight: 600, color: change > 0 ? "var(--grn)" : "var(--lab)" }}>
+                    {change > 0 ? `+${change}` : change}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+          {region.constituencies.length} constituencies + 7 list seats = {region.constituencies.length + 7} total seats in region
         </div>
       </div>
 
+      {/* Regional list vote bar (compact) */}
       <div className="card">
-        <h3>D'Hondt Allocation</h3>
-        <DHondtWalkthrough rounds={regionResult.dhondt.rounds} />
+        <h3>Regional List Vote</h3>
+        <VoteBar votes={region.regionalListVotes} />
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 12, marginTop: 4 }}>
+          {DISPLAY_PARTIES.map(p => {
+            const v = region.regionalListVotes[p] ?? 0;
+            if (v === 0) return null;
+            const total = Object.values(region.regionalListVotes).reduce((a, b) => a + (b ?? 0), 0);
+            const pct = total > 0 ? ((v / total) * 100).toFixed(1) : "0";
+            return (
+              <span key={p} style={{ color: PARTIES[p].colour }}>
+                {PARTIES[p].shortName}: {pct}%
+              </span>
+            );
+          })}
+        </div>
       </div>
 
+      {/* D'Hondt - collapsible, shows result summary first */}
+      <DHondtSection rounds={regionResult.dhondt.rounds} listSeats={listSeats} />
+
+      {/* Constituencies */}
       <div className="card">
         <h3>Constituencies</h3>
         <table className="seat-table">
@@ -285,12 +342,14 @@ function RegionDetail({
               <th>Constituency</th>
               <th>Winner</th>
               <th className="num">Majority</th>
+              <th className="num">Base</th>
             </tr>
           </thead>
           <tbody>
             {region.constituencies.sort().map(name => {
               const c = swungData.constituencies[name]!;
               const winner = regionResult.constituencyWinners[name]!;
+              const baseWinner = baseRegionResult.constituencyWinners[name]!;
               const votes = c.constituencyVotes;
               const sorted = DISPLAY_PARTIES
                 .filter(p => (votes[p] ?? 0) > 0)
@@ -298,18 +357,21 @@ function RegionDetail({
               const majority = sorted.length >= 2
                 ? (votes[sorted[0]!] ?? 0) - (votes[sorted[1]!] ?? 0)
                 : votes[sorted[0]!] ?? 0;
+              const changed = winner !== baseWinner;
 
               return (
                 <tr
                   key={name}
-                  style={{ cursor: "pointer" }}
+                  style={{ cursor: "pointer", background: changed ? "var(--bg-tertiary)" : undefined }}
                   onClick={() => onSelectConstituency(name)}
                 >
                   <td>{name}</td>
                   <td className="party-name" style={{ color: PARTIES[winner].colour }}>
                     {PARTIES[winner].shortName}
+                    {changed && <span style={{ color: "var(--text-muted)", fontWeight: 400 }}> (was {PARTIES[baseWinner].shortName})</span>}
                   </td>
                   <td className="num">{majority.toLocaleString()}</td>
+                  <td className="num" style={{ color: PARTIES[baseWinner].colour }}>{PARTIES[baseWinner].shortName}</td>
                 </tr>
               );
             })}
@@ -320,42 +382,81 @@ function RegionDetail({
   );
 }
 
-function DHondtWalkthrough({ rounds }: { rounds: DHondtRound[] }) {
+function DHondtSection({ rounds, listSeats }: { rounds: DHondtRound[]; listSeats: PartyVotes }) {
+  const [expanded, setExpanded] = useState(false);
+
+  // Summary: who won list seats
+  const winners = DISPLAY_PARTIES
+    .filter(p => (listSeats[p] ?? 0) > 0)
+    .sort((a, b) => (listSeats[b] ?? 0) - (listSeats[a] ?? 0));
+
   const parties = DISPLAY_PARTIES.filter(p =>
     rounds.some(r => (r.quotients[p] ?? 0) > 0)
   );
 
   return (
-    <table className="dhondt-table">
-      <thead>
-        <tr>
-          <th style={{ textAlign: "left" }}>Round</th>
-          {parties.map(p => (
-            <th key={p} style={{ color: PARTIES[p].colour }}>{PARTIES[p].shortName}</th>
-          ))}
-          <th>Winner</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rounds.map(r => (
-          <tr key={r.round}>
-            <td style={{ textAlign: "left" }}>{r.round}</td>
-            {parties.map(p => {
-              const q = r.quotients[p] ?? 0;
-              const isWinner = p === r.winner;
-              return (
-                <td key={p} className={isWinner ? "winner" : ""}>
-                  {q > 0 ? Math.round(q).toLocaleString() : "—"}
-                </td>
-              );
-            })}
-            <td className="winner" style={{ color: PARTIES[r.winner].colour }}>
-              {PARTIES[r.winner].shortName}
-            </td>
-          </tr>
+    <div className="card">
+      <div
+        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
+        onClick={() => setExpanded(!expanded)}
+      >
+        <h3>List Seats (D'Hondt)</h3>
+        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+          {expanded ? "Hide workings" : "Show workings"}
+        </span>
+      </div>
+      <div style={{ display: "flex", gap: 12, margin: "8px 0", flexWrap: "wrap" }}>
+        {winners.map(p => (
+          <span key={p} style={{
+            color: PARTIES[p].colour,
+            fontWeight: 700,
+            fontSize: 15,
+            background: `${PARTIES[p].colour}18`,
+            padding: "2px 10px",
+            borderRadius: 4,
+          }}>
+            {PARTIES[p].shortName} {listSeats[p]}
+          </span>
         ))}
-      </tbody>
-    </table>
+      </div>
+      <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: expanded ? 12 : 0 }}>
+        Allocation order: {rounds.map(r =>
+          <span key={r.round} style={{ color: PARTIES[r.winner].colour }}>{PARTIES[r.winner].shortName}</span>
+        ).reduce((acc: React.ReactNode[], el, i) => i === 0 ? [el] : [...acc, " → ", el], [])}
+      </div>
+      {expanded && (
+        <table className="dhondt-table">
+          <thead>
+            <tr>
+              <th style={{ textAlign: "left" }}>Round</th>
+              {parties.map(p => (
+                <th key={p} style={{ color: PARTIES[p].colour }}>{PARTIES[p].shortName}</th>
+              ))}
+              <th>Winner</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rounds.map(r => (
+              <tr key={r.round}>
+                <td style={{ textAlign: "left" }}>{r.round}</td>
+                {parties.map(p => {
+                  const q = r.quotients[p] ?? 0;
+                  const isWinner = p === r.winner;
+                  return (
+                    <td key={p} className={isWinner ? "winner" : ""}>
+                      {q > 0 ? Math.round(q).toLocaleString() : "—"}
+                    </td>
+                  );
+                })}
+                <td className="winner" style={{ color: PARTIES[r.winner].colour }}>
+                  {PARTIES[r.winner].shortName}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }
 
