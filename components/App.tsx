@@ -709,50 +709,152 @@ const POLLING_PRESETS: Record<string, { constituency: PartyVotes; regional: Part
 const BASE_CONST_PCT: PartyVotes = { SNP: 47.7, CON: 21.9, LAB: 21.6, GRN: 1.3, LD: 6.9 };
 const BASE_REG_PCT: PartyVotes = { SNP: 40.3, CON: 23.5, LAB: 17.9, GRN: 8.1, LD: 5.1, ALBA: 1.7 };
 
+const POLLING_PARTIES: PartyId[] = ["SNP", "CON", "LAB", "GRN", "LD", "REFORM", "ALBA"];
+
+function pollingToSwing(polls: PartyVotes): SwingConfig {
+  const swing = createEmptySwing();
+  for (const party of DISPLAY_PARTIES) {
+    const constDiff = (polls[party] ?? 0) - (BASE_CONST_PCT[party] ?? 0);
+    const regDiff = (polls[party] ?? 0) - (BASE_REG_PCT[party] ?? 0);
+    const avg = (constDiff + regDiff) / 2;
+    if (Math.abs(avg) > 0.1) {
+      swing.national[party] = Math.round(avg * 2) / 2;
+    }
+  }
+  return swing;
+}
+
 function PollingPresets({ onApply }: { onApply: (swing: SwingConfig) => void }) {
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"presets" | "custom">("presets");
+  const [custom, setCustom] = useState<PartyVotes>(() => {
+    // Pre-fill with rough 2021 baseline so the user sees real numbers
+    const init: PartyVotes = {};
+    for (const p of POLLING_PARTIES) {
+      // Average of const and regional baseline, rounded to 1dp
+      const avg = ((BASE_CONST_PCT[p] ?? 0) + (BASE_REG_PCT[p] ?? 0)) / 2;
+      init[p] = Math.round(avg * 10) / 10;
+    }
+    return init;
+  });
 
   const applyPreset = (name: string) => {
     const preset = POLLING_PRESETS[name]!;
-    const swing = createEmptySwing();
-
-    // Calculate swing as difference from 2021 base percentages
-    for (const party of DISPLAY_PARTIES) {
-      const constDiff = (preset.constituency[party] ?? 0) - (BASE_CONST_PCT[party] ?? 0);
-      const regDiff = (preset.regional[party] ?? 0) - (BASE_REG_PCT[party] ?? 0);
-      // Use the average of constituency and regional swing
-      const avg = (constDiff + regDiff) / 2;
-      if (Math.abs(avg) > 0.1) {
-        swing.national[party] = Math.round(avg * 2) / 2; // round to 0.5
-      }
+    // Average the constituency and regional figures for the preset
+    const merged: PartyVotes = {};
+    for (const p of POLLING_PARTIES) {
+      const avg = ((preset.constituency[p] ?? 0) + (preset.regional[p] ?? 0)) / 2;
+      merged[p] = Math.round(avg * 10) / 10;
     }
-
-    onApply(swing);
+    onApply(pollingToSwing(merged));
     setOpen(false);
+  };
+
+  const applyCustom = () => {
+    onApply(pollingToSwing(custom));
+    setOpen(false);
+  };
+
+  const total = POLLING_PARTIES.reduce((s, p) => s + (custom[p] ?? 0), 0);
+  const totalOk = Math.abs(total - 100) <= 10;
+
+  const setPartyValue = (party: PartyId, raw: string) => {
+    const val = raw === "" ? 0 : parseFloat(raw);
+    if (!isNaN(val)) {
+      setCustom({ ...custom, [party]: Math.round(val * 10) / 10 });
+    }
   };
 
   return (
     <div style={{ position: "relative" }}>
       <button className="btn btn-primary" onClick={() => setOpen(!open)}>
-        Load Polling
+        Polling
       </button>
       {open && (
-        <div style={{
-          position: "absolute", right: 0, top: "100%", marginTop: 4,
-          background: "var(--bg-tertiary)", border: "1px solid var(--border)",
-          borderRadius: 6, padding: 8, zIndex: 10, minWidth: 200,
-        }}>
-          {Object.keys(POLLING_PRESETS).map(name => (
-            <div
-              key={name}
-              style={{ padding: "6px 10px", cursor: "pointer", borderRadius: 4, fontSize: 13 }}
-              onClick={() => applyPreset(name)}
-              onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-hover)")}
-              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+        <div
+          style={{
+            position: "absolute", right: 0, top: "100%", marginTop: 4,
+            background: "var(--bg-secondary)", border: "1px solid var(--border)",
+            borderRadius: 8, padding: 12, zIndex: 10, minWidth: 280,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Tab buttons */}
+          <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+            <button
+              className="btn"
+              style={{ flex: 1, fontSize: 12, background: mode === "presets" ? "var(--accent)" : undefined }}
+              onClick={() => setMode("presets")}
             >
-              {name}
-            </div>
-          ))}
+              Presets
+            </button>
+            <button
+              className="btn"
+              style={{ flex: 1, fontSize: 12, background: mode === "custom" ? "var(--accent)" : undefined }}
+              onClick={() => setMode("custom")}
+            >
+              Enter poll
+            </button>
+          </div>
+
+          {mode === "presets" && (
+            <>
+              {Object.keys(POLLING_PRESETS).map(name => (
+                <div
+                  key={name}
+                  style={{ padding: "6px 10px", cursor: "pointer", borderRadius: 4, fontSize: 13 }}
+                  onClick={() => applyPreset(name)}
+                  onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-hover)")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                >
+                  {name}
+                </div>
+              ))}
+            </>
+          )}
+
+          {mode === "custom" && (
+            <>
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 10 }}>
+                Type in the poll figures and hit Apply.
+              </div>
+              {POLLING_PARTIES.map(p => (
+                <div key={p} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <span style={{
+                    color: PARTIES[p].colour, fontWeight: 700, fontSize: 13,
+                    width: 42, flexShrink: 0,
+                  }}>
+                    {PARTIES[p].shortName}
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={custom[p] ?? 0}
+                    onChange={e => setPartyValue(p, e.target.value)}
+                    onFocus={e => e.target.select()}
+                    style={{
+                      flex: 1, textAlign: "right", background: "var(--bg-tertiary)",
+                      border: "1px solid var(--border)", borderRadius: 4, color: "var(--text-primary)",
+                      padding: "6px 10px", fontSize: 14, fontVariantNumeric: "tabular-nums",
+                    }}
+                  />
+                  <span style={{ fontSize: 13, color: "var(--text-muted)", width: 16 }}>%</span>
+                </div>
+              ))}
+              <div style={{
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                marginTop: 10, paddingTop: 8, borderTop: "1px solid var(--border)",
+              }}>
+                <span style={{ fontSize: 12, color: totalOk ? "var(--text-muted)" : "var(--lab)" }}>
+                  Total: {total.toFixed(1)}%
+                </span>
+                <button className="btn btn-primary" onClick={applyCustom} style={{ fontSize: 13, padding: "6px 18px" }}>
+                  Apply
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
