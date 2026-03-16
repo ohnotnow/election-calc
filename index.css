@@ -1,0 +1,331 @@
+:root {
+  --bg-primary: #0f0f1a;
+  --bg-secondary: #1a1a2e;
+  --bg-tertiary: #252540;
+  --bg-hover: #2d2d4a;
+  --text-primary: #e8e8f0;
+  --text-secondary: #a0a0b8;
+  --text-muted: #6a6a80;
+  --border: #333355;
+  --accent: #4a4a7a;
+
+  --snp: #FDF38E;
+  --con: #0087DC;
+  --lab: #E4003B;
+  --grn: #00A651;
+  --ld: #FAA61A;
+  --reform: #12B6CF;
+  --alba: #005EB8;
+  --oth: #999999;
+
+  --snp-dim: #7d7940;
+  --con-dim: #004a6e;
+  --lab-dim: #72001e;
+  --grn-dim: #005329;
+  --ld-dim: #7d530d;
+  --reform-dim: #095b68;
+  --alba-dim: #002f5c;
+  --oth-dim: #4d4d4d;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+  gap: 1px;
+  background: var(--border);
+}
+
+.app-header {
+  grid-column: 1 / -1;
+  background: var(--bg-secondary);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.app-header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.app-sidebar {
+  background: var(--bg-secondary);
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.app-main {
+  background: var(--bg-primary);
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.app-footer {
+  grid-column: 1 / -1;
+  background: var(--bg-secondary);
+  padding: 12px 20px;
+}
+
+/* Region list */
+.region-list {
+  list-style: none;
+}
+
+.region-item {
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-bottom: 2px;
+  font-size: 13px;
+  transition: background 0.15s;
+}
+
+.region-item:hover {
+  background: var(--bg-hover);
+}
+
+.region-item.active {
+  background: var(--bg-tertiary);
+  border-left: 3px solid var(--accent);
+}
+
+.region-item .seat-count {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Cards */
+.card {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.card h2, .card h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+
+/* Seat summary table */
+.seat-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.seat-table th {
+  text-align: left;
+  padding: 6px 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+}
+
+.seat-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.seat-table .party-name {
+  font-weight: 600;
+}
+
+.seat-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.seat-table .change-pos {
+  color: var(--grn);
+}
+
+.seat-table .change-neg {
+  color: var(--lab);
+}
+
+/* Swing sliders */
+.swing-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.swing-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.swing-slider label {
+  font-size: 12px;
+  font-weight: 500;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.swing-slider .swing-value {
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 48px;
+  text-align: right;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-tertiary);
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  cursor: pointer;
+  border: 2px solid var(--bg-primary);
+}
+
+/* Parliament hemicycle */
+.hemicycle {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0;
+}
+
+/* Vote bars */
+.vote-bar {
+  display: flex;
+  height: 24px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.vote-bar-segment {
+  transition: width 0.3s ease;
+  min-width: 1px;
+}
+
+/* D'Hondt walkthrough */
+.dhondt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dhondt-table th,
+.dhondt-table td {
+  padding: 4px 8px;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+}
+
+.dhondt-table th {
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+
+.dhondt-table .winner {
+  font-weight: 700;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+}
+
+/* Buttons */
+.btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn:hover {
+  background: var(--bg-hover);
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Party perspective selector */
+.party-selector {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.party-chip {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.15s;
+}
+
+.party-chip:hover {
+  opacity: 0.8;
+}
+
+.party-chip.active {
+  border-color: var(--text-primary);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .app-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .app-sidebar {
+    display: none;
+  }
+}
