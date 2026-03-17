@@ -21,7 +21,7 @@ export default function App() {
     <div className="app-layout">
       <header className="app-header">
         <div>
-          <h1>Scottish Parliament Election Calculator</h1>
+          <h1 style={{ cursor: "pointer" }} onClick={() => setSelectedRegion(null)}>Scottish Parliament Election Calculator</h1>
           <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
             Starting point: 2021 election results on the new 2026 constituency boundaries.
             Use the sliders below or enter polling figures to model "what if?" scenarios.
