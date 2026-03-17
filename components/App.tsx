@@ -27,7 +27,7 @@ export default function App() {
             Use the sliders below or enter polling figures to model "what if?" scenarios.
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, flexWrap: "nowrap" }}>
           <PollingPresets onApply={setSwing} />
           <PartySelector selected={partyPerspective} onSelect={setPartyPerspective} />
         </div>
@@ -587,11 +587,27 @@ function PartyPerspectivePanel({
   baseResult: ElectionResult;
   data: ElectionData;
 }) {
+  const [showSeats, setShowSeats] = useState(false);
   const total = result.totalSeats[party] ?? 0;
   const baseTotal = baseResult.totalSeats[party] ?? 0;
   const change = total - baseTotal;
   const MAJORITY = 65;
   const distFromMajority = MAJORITY - total;
+
+  // Build seat detail lists
+  const constSeats: string[] = [];
+  const listSeatsByRegion: Array<{ region: string; count: number }> = [];
+  for (const [regionName, rr] of Object.entries(result.regionResults)) {
+    for (const [constName, winner] of Object.entries(rr.constituencyWinners)) {
+      if (winner === party) constSeats.push(constName);
+    }
+    const regionListCount = rr.dhondt.listSeats[party] ?? 0;
+    if (regionListCount > 0) {
+      listSeatsByRegion.push({ region: regionName, count: regionListCount });
+    }
+  }
+  constSeats.sort();
+  listSeatsByRegion.sort((a, b) => b.count - a.count);
 
   // Find seats gained and lost
   const gained: string[] = [];
@@ -636,25 +652,57 @@ function PartyPerspectivePanel({
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 12 }}>
         <div>
           <div style={{ fontSize: 28, fontWeight: 700 }}>{total}</div>
-          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+          <div
+            style={{ fontSize: 13, color: "var(--text-secondary, #aab)", cursor: "pointer" }}
+            onClick={() => setShowSeats(!showSeats)}
+            title="Click to show seat details"
+          >
             seats ({result.constituencySeats[party] ?? 0} const + {result.listSeats[party] ?? 0} list)
+            <span style={{ fontSize: 11, marginLeft: 4, color: "var(--text-muted)" }}>{showSeats ? "▲" : "▼"}</span>
           </div>
         </div>
         <div>
           <div style={{ fontSize: 28, fontWeight: 700, color: change > 0 ? "var(--grn)" : change < 0 ? "var(--lab)" : "var(--text-muted)" }}>
             {change > 0 ? `+${change}` : change}
           </div>
-          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>change from base</div>
+          <div style={{ fontSize: 13, color: "var(--text-secondary, #aab)" }}>change from base</div>
         </div>
         <div>
           <div style={{ fontSize: 28, fontWeight: 700, color: distFromMajority <= 0 ? "var(--grn)" : "var(--text-primary)" }}>
             {distFromMajority <= 0 ? `Majority of ${-distFromMajority + 1}` : distFromMajority}
           </div>
-          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+          <div style={{ fontSize: 13, color: "var(--text-secondary, #aab)" }}>
             {distFromMajority > 0 ? "seats short of majority" : ""}
           </div>
         </div>
       </div>
+
+      {showSeats && total > 0 && (
+        <div style={{ marginBottom: 12, padding: "8px 10px", background: "rgba(255,255,255,0.03)", borderRadius: 6 }}>
+          {constSeats.length > 0 && (
+            <div style={{ marginBottom: listSeatsByRegion.length > 0 ? 10 : 0 }}>
+              <div style={{ fontSize: 11, color: PARTIES[party].colour, textTransform: "uppercase", marginBottom: 4 }}>
+                Constituency Seats ({constSeats.length})
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: constSeats.length > 8 ? "1fr 1fr" : "1fr", gap: "1px 12px", fontSize: 13 }}>
+                {constSeats.map(name => <div key={name}>{name}</div>)}
+              </div>
+            </div>
+          )}
+          {listSeatsByRegion.length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, color: PARTIES[party].colour, textTransform: "uppercase", marginBottom: 4 }}>
+                List Seats ({result.listSeats[party] ?? 0})
+              </div>
+              <div style={{ fontSize: 13 }}>
+                {listSeatsByRegion.map(({ region, count }) => (
+                  <div key={region}>{count} in {region}</div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {(gained.length > 0 || lost.length > 0) && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
